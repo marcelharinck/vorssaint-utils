@@ -396,7 +396,9 @@ final class WindowLayoutService: ObservableObject {
                            visibleFrame: NSRect) -> WindowLayoutPlacement {
         let rect = WindowLayoutGeometry.rect(for: action,
                                              current: appKitFrame(fromAX: current),
-                                             visibleFrame: visibleFrame)
+                                             visibleFrame: visibleFrame,
+                                             windowGap: WindowLayoutGaps.windowGap,
+                                             screenGap: WindowLayoutGaps.screenGap)
         let integral = rect.integral
         return WindowLayoutPlacement(frame: axFrame(fromAppKit: integral), rect: integral)
     }
