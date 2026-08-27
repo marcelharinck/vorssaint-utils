@@ -476,6 +476,8 @@ final class WindowLayoutService: ObservableObject {
             return
         }
         if let original = context.original, shouldUseMaximizeFallback(for: context.action) {
+            // An ungapped scratch frame that coaxes a stubborn window into
+            // resizing; the gapped target is re-applied right after.
             let currentRect = appKitFrame(fromAX: original)
             let maxFrame = axFrame(fromAppKit: WindowLayoutGeometry.rect(for: .maximize,
                                                                          current: currentRect,

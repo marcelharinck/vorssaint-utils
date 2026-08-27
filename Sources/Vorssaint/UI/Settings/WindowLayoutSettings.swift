@@ -222,12 +222,13 @@ struct WindowLayoutSettings: View {
     private func gapPresetTitle(_ value: Int) -> String {
         let name: String
         switch value {
+        case 0: return text.gapNone
         case 8: name = text.gapTiny
         case 16: name = text.gapSmall
         case 32: name = text.gapMedium
         case 64: name = text.gapLarge
         case 128: name = text.gapExtraLarge
-        default: return text.gapNone
+        default: return "\(value) px"
         }
         return "\(name) (\(value) px)"
     }

@@ -4663,6 +4663,14 @@ struct MetricsTests {
                                          windowGap: 64)
                == WindowLayoutGeometry.rect(for: .marginMaximize, current: currentWindow, visibleFrame: visibleFrame),
                "margin maximize keeps its own margin instead of the window gap")
+        expect(WindowLayoutGeometry.rect(for: .marginMaximize, current: currentWindow, visibleFrame: visibleFrame,
+                                         windowGap: 16, screenGap: 32)
+               == WindowLayoutGeometry.rect(for: .marginMaximize, current: currentWindow, visibleFrame: visibleFrame),
+               "margin maximize keeps its plain percentage margin under a screen gap instead of compounding")
+        expect(WindowLayoutGeometry.rect(for: .center, current: currentWindow, visibleFrame: visibleFrame,
+                                         screenGap: 32)
+               == WindowLayoutGeometry.rect(for: .center, current: currentWindow, visibleFrame: visibleFrame),
+               "centering keeps the window's size under a screen gap instead of clamping to the inset frame")
         expect(WindowLayoutGeometry.screenGapFrame(CGRect(x: 0, y: 0, width: 100, height: 100), screenGap: 128)
                == CGRect(x: 10, y: 10, width: 80, height: 80),
                "an oversized screen gap keeps 80pt of layout space instead of inverting the frame")

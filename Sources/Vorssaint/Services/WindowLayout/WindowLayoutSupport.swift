@@ -270,15 +270,24 @@ enum WindowLayoutGeometry {
                      visibleFrame: CGRect,
                      windowGap: CGFloat = 0,
                      screenGap: CGFloat = 0) -> CGRect {
-        let frame = screenGapFrame(visibleFrame, screenGap: screenGap)
+        // Only placements that tile against the screen edge take the screen
+        // gap. The exempt actions keep their own geometry: margin maximize's
+        // percentage margin, center's size clamp, and the pass-through
+        // actions that return the current frame.
+        let frame: CGRect
+        switch action {
+        case .marginMaximize, .center, .restore, .previousDisplay, .nextDisplay, .fullScreen:
+            frame = visibleFrame
+        default:
+            frame = screenGapFrame(visibleFrame, screenGap: screenGap)
+        }
         let rect = ungappedRect(for: action, current: current, visibleFrame: frame)
         return windowGapped(rect, for: action, in: frame, windowGap: windowGap)
     }
 
     /// The visible frame pulled in by the screen gap on every side. The inset
-    /// keeps at least 80pt of layout space per axis — the size below which
-    /// accepts() no longer treats a frame as a real window — so an oversized
-    /// gap on a small display degrades instead of inverting the frame.
+    /// keeps at least 80pt of layout space per axis, so an oversized gap on a
+    /// small display degrades instead of inverting the frame.
     static func screenGapFrame(_ visibleFrame: CGRect, screenGap: CGFloat) -> CGRect {
         guard screenGap > 0 else { return visibleFrame }
         let dx = min(screenGap, max(0, (visibleFrame.width - 80) / 2))
