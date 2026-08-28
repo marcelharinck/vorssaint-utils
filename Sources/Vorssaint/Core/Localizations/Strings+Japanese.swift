@@ -907,6 +907,8 @@ extension Strings {
         cleanerNotifOpenSettings: "通知設定を開く…",
         launchAtLoginNeedsApplications: "ログイン時に開けない場所からアプリが実行されています。Vorssaintをアプリケーションフォルダにドラッグし、そこから開いてもう一度オンにしてください。",
         launchAtLoginNeedsApproval: "ログイン項目は登録されていますが、システム設定ではオフのままです。「システム設定 › 一般 › ログイン項目と機能拡張」を開き、「ログイン時に開く」でVorssaintをオンにしてください。",
+        ocrRemoveLineBreaksToggle: "改行を削除",
+        ocrRemoveLineBreaksCaption: "認識したテキストの改行を取り除き、1つの段落としてペーストします。",
         ocrQRToggle: "QRコードを読み取る",
         ocrQRCaption: "選択した範囲にQRコードがあると、その内容をコピーまたは開けるように表示します。",
         ocrQRCopied: "QRコードをコピーしました",
@@ -966,6 +968,6 @@ extension Strings {
         switcherMinimizedPlacementNormal: "通常の順序",
         switcherMinimizedPlacementEnd: "最後に配置",
         switcherMinimizedPlacementHidden: "非表示",
-        switcherShowFullscreenWindows: "フルスクリーンのウインドウを表示" 
+        switcherShowFullscreenWindows: "フルスクリーンのウインドウを表示"
     )
 }
