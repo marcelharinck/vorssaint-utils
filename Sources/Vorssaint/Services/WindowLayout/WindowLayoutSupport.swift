@@ -240,8 +240,7 @@ enum WindowLayoutAction: String, CaseIterable, Identifiable {
 }
 
 /// The configurable spacing around snapped windows (issue #1068). Values are
-/// pixels; Settings offers the same preset ladder Raycast uses so people
-/// coming from there find familiar sizes.
+/// in pixels, offering standard spacing presets (0 to 128 px).
 enum WindowLayoutGaps {
     static let presets: [Int] = [0, 8, 16, 32, 64, 128]
 
