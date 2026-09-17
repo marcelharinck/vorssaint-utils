@@ -98,8 +98,13 @@ extension AppFeature {
         case .textSnippets, .autoQuit:
             return .inputs
         case .windowLayout:
+            let edgeSnapRuns = UserDefaults.standard.bool(forKey: DefaultsKey.windowEdgeSnapEnabled)
+                && !WindowEdgeSnapZone.enabledZones(
+                    from: UserDefaults.standard.string(
+                        forKey: DefaultsKey.windowEdgeSnapDisabledZones)
+                ).isEmpty
             return UserDefaults.standard.bool(forKey: DefaultsKey.windowGestureEnabled)
-                || UserDefaults.standard.bool(forKey: DefaultsKey.windowEdgeSnapEnabled)
+                || edgeSnapRuns
                 ? .pointer : .idle
         case .radialMenu:
             // With a side button configured the trigger is a mouse tap;
@@ -107,6 +112,9 @@ extension AppFeature {
             return RadialMenuMouseTrigger.sanitized(
                 UserDefaults.standard.string(forKey: DefaultsKey.radialMenuMouseButton)) == .off
                 ? .idle : .mouse
+        case .notchNotifications, .notchGestures, .notchTimer, .notchQueue, .notchDownloads: return .idle
+        case .notchAccessories: return .periodic
+        case .notch, .notchCalendar, .notchLyrics: return .periodic
         case .clipboardHistory, .urlCleaner, .extraBrightness,
              .monitorCPU, .monitorGPU, .monitorMemory,
              .monitorNetwork, .monitorDisk, .monitorPower:

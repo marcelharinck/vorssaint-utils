@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Vorssaint
 
+import AppKit
 import Foundation
+import UniformTypeIdentifiers
 
 enum ShelfSelectionSupport {
     /// Escape clears the Shelf selection only when pressed on its own. Keeping
@@ -137,6 +139,49 @@ enum ShelfInteractionSupport {
     }
 }
 
+/// Types accepted by the native shelf drop targets.
+enum ShelfPasteboardSupport {
+    static let filePromiseTypeIdentifiers: Set<String> = {
+        var ids = Set(NSFilePromiseReceiver.readableDraggedTypes)
+        ids.formUnion(["Apple files promise pasteboard type",
+                       "com.apple.pasteboard.promised-file-url",
+                       "com.apple.pasteboard.promised-file-content-type"])
+        return ids
+    }()
+
+    private static let directDroppableTypes: Set<String> = [
+        NSPasteboard.PasteboardType.fileURL.rawValue,
+        NSPasteboard.PasteboardType.string.rawValue,
+        NSPasteboard.PasteboardType.tiff.rawValue,
+        NSPasteboard.PasteboardType.png.rawValue,
+        UTType.gif.identifier,
+        UTType.fileURL.identifier,
+        UTType.image.identifier,
+        UTType.url.identifier,
+        UTType.text.identifier,
+        UTType.plainText.identifier,
+        "NSFilenamesPboardType",
+        "NSURLPboardType"
+    ]
+
+    private static let supportedUTTypes: [UTType] = [
+        .fileURL, .gif, .image, .url, .text, .plainText
+    ]
+
+    static func isFilePromiseType(_ rawValue: String) -> Bool {
+        filePromiseTypeIdentifiers.contains(rawValue)
+    }
+
+    static func isDroppablePasteboardType(_ rawValue: String) -> Bool {
+        if isFilePromiseType(rawValue) { return true }
+        if directDroppableTypes.contains(rawValue) { return true }
+        guard let utType = UTType(rawValue) else { return false }
+        return supportedUTTypes.contains { utType.conforms(to: $0) }
+    }
+
+
+}
+
 /// A leaf item's kind, reduced to what the pile-breakdown tooltip needs. A
 /// pure stand-in for ShelfService.Item's payload, like ShelfEdgeScreen is
 /// for NSScreen, so this stays testable without depending on Item.
@@ -154,20 +199,43 @@ struct ShelfTooltipPileBreakdown: Equatable {
     var total: Int { images + files + notes + links }
 }
 
-/// The localized words the pile breakdown needs, one singular and one
-/// plural per kind (this app has no CLDR-style pluralization, so each
-/// form is its own string) plus the always-plural items count, since a
-/// pile always holds two or more leaves.
+/// The localized words the pile breakdown needs (this app has no CLDR-style
+/// pluralization, so each form is its own string): one for a count of one, one
+/// for two through four where a language asks for it, and one for the rest.
+/// The items count has no singular because a pile always holds two or more.
 struct ShelfTooltipStrings {
     let itemsFormat: String
+    let itemsFew: String
     let imageSingular: String
+    let imageFew: String
     let imagePlural: String
     let fileSingular: String
+    let fileFew: String
     let filePlural: String
     let noteSingular: String
+    let noteFew: String
     let notePlural: String
     let linkSingular: String
+    let linkFew: String
     let linkPlural: String
+    /// Set for a language whose two through four take a form of their own.
+    let usesFewForm: Bool
+
+    /// The form a count asks for. Russian agrees by the number's last digits:
+    /// one for 1, 21, 31 but not 11; the middle form for 2 through 4, 22
+    /// through 24 but not 12 through 14; the last for everything else.
+    enum Form { case one, few, many }
+
+    func form(for count: Int) -> Form {
+        guard usesFewForm else { return count == 1 ? .one : .many }
+        let magnitude = abs(count)
+        if (11...14).contains(magnitude % 100) { return .many }
+        switch magnitude % 10 {
+        case 1: return .one
+        case 2, 3, 4: return .few
+        default: return .many
+        }
+    }
 }
 
 enum ShelfTooltipSupport {
@@ -226,23 +294,34 @@ enum ShelfTooltipSupport {
     /// leaving a dangling colon with nothing after it.
     static func text(forPile breakdown: ShelfTooltipPileBreakdown, strings: ShelfTooltipStrings) -> String {
         var parts: [String] = []
+        func worded(_ count: Int, _ one: String, _ few: String, _ many: String) -> String {
+            switch strings.form(for: count) {
+            case .one: return String(format: one, count)
+            case .few: return String(format: few, count)
+            case .many: return String(format: many, count)
+            }
+        }
         if breakdown.images > 0 {
-            parts.append(String(format: breakdown.images == 1 ? strings.imageSingular : strings.imagePlural,
-                                breakdown.images))
+            parts.append(worded(breakdown.images,
+                                strings.imageSingular, strings.imageFew, strings.imagePlural))
         }
         if breakdown.files > 0 {
-            parts.append(String(format: breakdown.files == 1 ? strings.fileSingular : strings.filePlural,
-                                breakdown.files))
+            parts.append(worded(breakdown.files,
+                                strings.fileSingular, strings.fileFew, strings.filePlural))
         }
         if breakdown.notes > 0 {
-            parts.append(String(format: breakdown.notes == 1 ? strings.noteSingular : strings.notePlural,
-                                breakdown.notes))
+            parts.append(worded(breakdown.notes,
+                                strings.noteSingular, strings.noteFew, strings.notePlural))
         }
         if breakdown.links > 0 {
-            parts.append(String(format: breakdown.links == 1 ? strings.linkSingular : strings.linkPlural,
-                                breakdown.links))
+            parts.append(worded(breakdown.links,
+                                strings.linkSingular, strings.linkFew, strings.linkPlural))
         }
-        let itemsText = String(format: strings.itemsFormat, breakdown.total)
+        // A pile always holds two or more, so the items count only ever needs
+        // the middle form or the last one.
+        let itemsText = strings.form(for: breakdown.total) == .few
+            ? String(format: strings.itemsFew, breakdown.total)
+            : String(format: strings.itemsFormat, breakdown.total)
         guard !parts.isEmpty else { return itemsText }
         return "\(itemsText): \(parts.joined(separator: ", "))"
     }
@@ -559,6 +638,13 @@ enum ShelfPersistenceSupport {
         existingLeaves >= 0 && newLeaves > 0 && existingLeaves <= maxLeaves - newLeaves
     }
 
+    /// A stored attachment can have its own directory to preserve its name.
+    /// Startup cleanup must keep that directory while a descendant is referenced.
+    static func containsKeptFile(under path: String, keptPaths: Set<String>) -> Bool {
+        let path = URL(fileURLWithPath: path).standardizedFileURL.path
+        return keptPaths.contains(path) || keptPaths.contains { $0.hasPrefix(path + "/") }
+    }
+
     static func discardablePayloadPaths(candidatePaths: [String],
                                         referencedPaths: Set<String>) -> Set<String> {
         Set(candidatePaths).subtracting(referencedPaths)
@@ -649,14 +735,5 @@ enum ShelfPersistenceSupport {
             }
         }
         return result
-    }
-}
-
-enum ShelfBatchSupport {
-    /// Restores original drop order after resolving every provider in a
-    /// multi-item drop in parallel, which completes out of order, and
-    /// drops any provider that failed to resolve to anything.
-    static func orderedItems<Item>(from resolved: [(index: Int, item: Item)]) -> [Item] {
-        resolved.sorted { $0.index < $1.index }.map(\.item)
     }
 }

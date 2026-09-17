@@ -74,6 +74,10 @@ struct RadialMenuProfile: Codable, Identifiable, Equatable {
     var shortcut: String = ""
     var mouseButton: String = RadialMenuMouseTrigger.off.rawValue
     var items: [RadialMenuItem] = []
+    /// The starter set this wheel was created from, so restoring its actions
+    /// brings back that one. Kept as the raw value because it is persisted;
+    /// nil for a wheel whose origin is not known.
+    var preset: String?
 
     func displayName(_ text: RadialMenuFeatureStrings) -> String {
         name.isEmpty ? text.presetGeneral : name
@@ -82,7 +86,7 @@ struct RadialMenuProfile: Codable, Identifiable, Equatable {
 
 extension RadialMenuProfile {
     private enum CodingKeys: String, CodingKey {
-        case id, name, color, shortcut, mouseButton, items
+        case id, name, color, shortcut, mouseButton, items, preset
     }
 
     init(from decoder: Decoder) throws {
@@ -93,7 +97,8 @@ extension RadialMenuProfile {
                   shortcut: try container.decodeIfPresent(String.self, forKey: .shortcut) ?? "",
                   mouseButton: try container.decodeIfPresent(String.self, forKey: .mouseButton) ?? RadialMenuMouseTrigger.off.rawValue,
                   items: try container.decodeIfPresent([FailableRadialMenuItem].self, forKey: .items)?
-                      .compactMap(\.value) ?? [])
+                      .compactMap(\.value) ?? [],
+                  preset: try container.decodeIfPresent(String.self, forKey: .preset))
     }
 }
 
@@ -196,7 +201,8 @@ enum RadialMenuProfilePreset: String, CaseIterable, Identifiable {
                            color: color ?? defaultColor,
                            shortcut: shortcut,
                            mouseButton: mouseButton,
-                           items: makeItems())
+                           items: makeItems(),
+                           preset: rawValue)
     }
 }
 
@@ -535,7 +541,14 @@ enum RadialNowPlayingSupport {
         for key in [titleKey, artistKey, albumKey] {
             if let value = fields[key] as? String { info[key] = value }
         }
-        if let rate = fields[playbackRateKey] as? NSNumber { info[playbackRateKey] = rate }
+        for key in [playbackRateKey, "kMRMediaRemoteNowPlayingInfoDuration",
+                    "kMRMediaRemoteNowPlayingInfoElapsedTime"] {
+            if let value = fields[key] as? NSNumber { info[key] = value }
+        }
+        if fields["artworkUnchanged"] as? Bool == true { info["artworkUnchanged"] = true }
+        if let canSeek = fields["canSeek"] as? Bool { info["canSeek"] = canSeek }
+        if let identifier = fields["itemIdentifier"] as? String, !identifier.isEmpty,
+           identifier.utf8.count <= 512, !identifier.contains("\0") { info["itemIdentifier"] = identifier }
         if let artwork = fields["artworkBase64"] as? String,
            let bytes = Data(base64Encoded: artwork), !bytes.isEmpty {
             info[artworkDataKey] = bytes
@@ -797,7 +810,10 @@ enum RadialMenuSupport {
             color: .accent,
             shortcut: legacyShortcut,
             mouseButton: legacyMouseButton,
-            items: items
+            items: items,
+            // The single wheel that came before profiles started from the
+            // general starter set, whatever it was edited into since.
+            preset: RadialMenuProfilePreset.general.rawValue
         )
         return [initialProfile]
     }
